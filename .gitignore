@@ -1,0 +1,14 @@
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.env
+*.db
+storage/raw/*
+storage/rendered/*
+storage/thumbnails/*
+!storage/raw/.gitkeep
+!storage/rendered/.gitkeep
+!storage/thumbnails/.gitkeep
+.DS_Store
+.config/
