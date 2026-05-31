@@ -10,7 +10,7 @@ from schemas.schemas import (
     StockDownloadRequest,
     StockDownloadResponse,
 )
-from services import pexels, pixabay
+from services import pexels, pixabay, stock_extra
 from database import get_db
 from models.video import Video
 from config import settings
@@ -22,40 +22,64 @@ router = APIRouter(prefix="/api/stock", tags=["stock"])
 @router.post("/search", response_model=StockSearchResponse)
 async def search_stock_videos(req: StockSearchRequest, keys: dict = Depends(get_api_keys)):
     orientation = "portrait" if req.orientation == "vertical" else "landscape"
+    provider = req.provider or "all"
     all_results = []
 
-    try:
-        if req.provider in ("pexels", "both"):
-            pexels_results = await pexels.search_videos(
-                query=req.query,
-                orientation=orientation,
-                api_key=keys["pexels"],
+    # Expanded Asian-focused search
+    if provider in ("pexels", "all"):
+        try:
+            r = await stock_extra.search_pexels_expanded(
+                query=req.query, orientation=orientation,
+                api_key=keys.get("pexels", ""),
             )
-            all_results.extend(pexels_results)
-    except Exception as e:
-        if req.provider == "pexels":
-            raise HTTPException(status_code=502, detail=f"Pexels API error: {str(e)}")
+            all_results.extend(r)
+        except Exception as e:
+            if provider == "pexels":
+                raise HTTPException(status_code=502, detail=f"Pexels error: {e}")
 
-    try:
-        if req.provider in ("pixabay", "both"):
-            pixabay_results = await pixabay.search_videos(
-                query=req.query,
-                orientation=req.orientation,
-                api_key=keys["pixabay"],
+    if provider in ("pixabay", "all"):
+        try:
+            r = await stock_extra.search_pixabay_expanded(
+                query=req.query, orientation=req.orientation,
+                api_key=keys.get("pixabay", ""),
             )
-            all_results.extend(pixabay_results)
-    except Exception as e:
-        if req.provider == "pixabay":
-            raise HTTPException(status_code=502, detail=f"Pixabay API error: {str(e)}")
+            all_results.extend(r)
+        except Exception as e:
+            if provider == "pixabay":
+                raise HTTPException(status_code=502, detail=f"Pixabay error: {e}")
+
+    # Direct search for specific providers
+    if provider == "pexels" and not all_results:
+        try:
+            r = await pexels.search_videos(
+                query=req.query, orientation=orientation, api_key=keys.get("pexels", ""),
+            )
+            all_results.extend(r)
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Pexels error: {e}")
+
+    if provider == "pixabay" and not all_results:
+        try:
+            r = await pixabay.search_videos(
+                query=req.query, orientation=req.orientation, api_key=keys.get("pixabay", ""),
+            )
+            all_results.extend(r)
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Pixabay error: {e}")
 
     candidates = []
+    seen = set()
     for r in all_results:
+        url = r.get("download_url", "")
+        if not url or url in seen:
+            continue
+        seen.add(url)
         candidates.append(StockVideoCandidate(
             thumbnail=r.get("thumbnail", ""),
             source_provider=r.get("source_provider", ""),
             source_url=r.get("source_url", ""),
             license_note=r.get("license_note", ""),
-            download_url=r.get("download_url", ""),
+            download_url=url,
             duration=r.get("duration"),
             width=r.get("width"),
             height=r.get("height"),

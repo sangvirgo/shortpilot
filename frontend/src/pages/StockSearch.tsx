@@ -95,9 +95,12 @@ export default function StockSearch() {
             onChange={(e) => setProvider(e.target.value)}
             className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
           >
-            <option value="">All Providers</option>
+            <option value="">Tất cả nguồn</option>
             <option value="pexels">Pexels</option>
             <option value="pixabay">Pixabay</option>
+            <option value="mixkit">Mixkit</option>
+            <option value="videezy">Videezy</option>
+            <option value="coverr">Coverr</option>
           </select>
           <div className="flex bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
             <button
